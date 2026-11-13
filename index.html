@@ -2,57 +2,135 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#0b1020">
-<title>AI 낙상 감지</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#071417">
+<title>낙지 · 낙상 지킴이 AI 낙상 감지</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=Gowun+Batang:wght@700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%}
-  body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#0b1020;color:#e8ecf4;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
-  .app{max-width:520px;margin:0 auto;min-height:100%;padding:16px 16px 80px;display:flex;flex-direction:column;gap:12px}
-  h1{font-size:20px;font-weight:900;text-align:center}
-  .sub{font-size:12px;color:#8a94ad;text-align:center;margin-top:-6px}
-  .start{width:100%;border:none;border-radius:16px;padding:18px;font-size:18px;font-weight:900;font-family:inherit;cursor:pointer;color:#fff;background:linear-gradient(135deg,#2f6bff,#5b3bff);box-shadow:0 8px 24px rgba(47,107,255,.35)}
-  .start.on{background:#1f2a48;box-shadow:none;color:#9fb3ff;font-size:15px;padding:14px}
-  .status{display:flex;align-items:center;gap:8px;font-size:13px;background:#141a2e;border:1px solid #232b45;border-radius:12px;padding:10px 12px}
-  .dot{width:10px;height:10px;border-radius:50%;flex:none}
-  .card{background:#141a2e;border:1px solid #232b45;border-radius:16px;padding:14px}
-  .row{display:flex;justify-content:space-between;align-items:baseline}
-  .lbl{font-size:12px;color:#8a94ad;font-weight:700}
-  .big{font-size:44px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
-  .big small{font-size:16px;color:#8a94ad;margin-left:4px}
-  .meter{height:12px;background:#0b1020;border-radius:6px;overflow:hidden;margin-top:8px;position:relative}
-  .meter .fill{height:100%;border-radius:6px;transition:width .08s linear}
-  .meter .th{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff}
-  canvas{width:100%;height:190px;display:block;background:#07090f;border-radius:12px;margin-top:8px}
-  .legend{display:flex;gap:12px;font-size:11.5px;color:#8a94ad;margin-top:6px;flex-wrap:wrap}
-  .legend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
-  .slider{width:100%;margin-top:10px;accent-color:#ff9f0a}
-  .note{font-size:11.5px;color:#6b7591;line-height:1.6}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .mini{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums;margin-top:2px}
+  html,body{min-height:100%}
+  body{
+    font-family:'IBM Plex Sans KR','Apple SD Gothic Neo',-apple-system,sans-serif;color:#eef1fa;overscroll-behavior:none;
+    user-select:none;-webkit-user-select:none;
+    background:#071417;
+    background-image:
+      radial-gradient(600px 420px at 10% -5%, rgba(92,194,185,.30), transparent 60%),
+      radial-gradient(520px 420px at 110% 18%, rgba(255,143,166,.22), transparent 60%),
+      radial-gradient(520px 520px at 50% 125%, rgba(31,111,107,.45), transparent 60%);
+    background-attachment:fixed;
+  }
+  .app{max-width:520px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+
+  /* 헤더 */
+  .top{display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+        background:linear-gradient(145deg,#fff1f4,#ffd6df);box-shadow:0 6px 20px rgba(255,143,166,.35)}
+  .brand b{font-family:'Gowun Batang',serif;font-size:24px;font-weight:700;display:block;color:#ffb3c3;line-height:1.1}
+  .brand small{font-size:11.5px;color:#8f9bbd}
+  .pill{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:7px 12px;border-radius:99px;
+        background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+  .pill i{width:8px;height:8px;border-radius:50%}
+  .pill.live i{animation:blink 1.2s infinite}
+  @keyframes blink{50%{opacity:.25}}
+
+  /* 원형 게이지 */
+  .hero{position:relative;display:flex;flex-direction:column;align-items:center;padding:18px 0 6px}
+  .gauge{position:relative;width:min(78vw,300px);aspect-ratio:1}
+  .gauge svg{position:absolute;inset:0;width:100%;height:100%}
+  .ring{position:absolute;inset:8%;border-radius:50%;border:2px solid currentColor;opacity:0}
+  .running .ring{animation:ripple 2.4s infinite}
+  .running .ring.r2{animation-delay:.8s}.running .ring.r3{animation-delay:1.6s}
+  @keyframes ripple{0%{transform:scale(.85);opacity:.5}100%{transform:scale(1.25);opacity:0}}
+  .g-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .g-label{font-size:12px;color:#8f9bbd;font-weight:700;letter-spacing:1px}
+  .g-val{font-size:clamp(44px,13vw,56px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-2px;transition:color .2s}
+  .g-val small{font-size:20px;letter-spacing:0;margin-left:2px;color:#8f9bbd}
+  .g-state{margin-top:8px;font-size:13px;font-weight:900;padding:5px 14px;border-radius:99px;transition:all .2s}
+
+  .nakji .legs-all{animation:wiggle 2.4s ease-in-out infinite;transform-origin:58px 80px}
+  .nakji .wave{animation:wave 1.4s ease-in-out infinite;transform-origin:92px 66px}
+  .nk-worried .wave{animation-duration:.7s}
+  .nk-alarm .wave{animation-duration:.35s}
+  .nk-alarm .legs-all{animation-duration:.5s}
+  .nakji.bob{animation:bob 3s ease-in-out infinite}
+  .nakji.bob.nk-alarm{animation:shake .4s infinite}
+  @keyframes wiggle{50%{transform:scaleX(1.05) skewX(-3deg)}}
+  @keyframes wave{50%{transform:rotate(-22deg)}}
+  @keyframes bob{50%{transform:translateY(-4px) rotate(-2deg)}}
+  .g-center .nakji{margin-bottom:-2px}
+  .bubble{position:relative;margin-top:12px;max-width:300px;text-align:center;font-size:14px;font-weight:700;line-height:1.45;padding:10px 16px;border-radius:16px;transition:all .2s;word-break:keep-all}
+  .bubble::before{content:'';position:absolute;top:-7px;left:50%;width:14px;height:14px;margin-left:-7px;transform:rotate(45deg);background:inherit;border-left:inherit;border-top:inherit}
+
+  /* 시작 버튼 */
+  .start{position:relative;width:100%;border:none;border-radius:18px;padding:18px;font-size:18px;font-weight:900;font-family:inherit;cursor:pointer;color:#fff;
+         background:linear-gradient(135deg,#1f6f6b 0%,#2a9a90 55%,#ff8fa6 130%);box-shadow:0 10px 30px rgba(42,154,144,.45);overflow:hidden}
+  .start::after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-20deg);animation:shine 2.6s infinite}
+  @keyframes shine{to{left:130%}}
+  .start.on{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);box-shadow:none;font-size:14.5px;padding:13px;color:#9fe3db}
+  .start.on::after{display:none}
+
+  .msg{font-size:12.5px;line-height:1.5;padding:10px 14px;border-radius:14px;background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.35);color:#ffb3ad}
+
+  /* 카드 */
+  .glass{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:14px 16px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .sec-title{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:#d3e6e4}
+  .sec-title span{font-size:11.5px;color:#8f9bbd;font-weight:500}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .stat{padding:12px 10px;text-align:center}
+  .stat .ic{font-size:20px}
+  .stat .v{font-size:19px;font-weight:900;margin-top:4px;font-variant-numeric:tabular-nums}
+  .stat .k{font-size:11px;color:#8f9bbd;margin-top:2px}
+
+  canvas{width:100%;height:180px;display:block;margin-top:10px;border-radius:14px;background:rgba(0,0,0,.35)}
+  .legend{display:flex;gap:12px;font-size:11px;color:#8f9bbd;margin-top:8px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+
+  .chips{display:flex;gap:8px;margin-top:12px}
+  .chip{flex:1;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#c9d2ec;border-radius:12px;padding:10px 4px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  .chip b{display:block;font-size:11px;color:#8f9bbd;font-weight:500;margin-top:2px}
+  .chip.sel{background:linear-gradient(135deg,rgba(42,154,144,.45),rgba(255,143,166,.3));border-color:#5cc2b9;color:#fff}
+  .chip.sel b{color:#dfe4ff}
+  .slider{width:100%;margin-top:12px;accent-color:#5cc2b9}
+
+  .hist li{list-style:none;display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,.06);font-size:13px}
+  .hist li:first-child{border-top:none}
+  .hist .badge{font-size:11px;font-weight:900;padding:3px 8px;border-radius:7px}
+  .hist time{margin-left:auto;color:#8f9bbd;font-size:12px;font-variant-numeric:tabular-nums}
+  .empty{font-size:12.5px;color:#6f7a99;padding:8px 0 2px}
+  .foot{font-size:11px;color:#5e6886;line-height:1.6;text-align:center;padding:0 8px}
 
   /* 경고 화면 */
-  .alarm{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#fff;animation:flash .6s infinite}
-  @keyframes flash{0%,100%{background:#c4001f}50%{background:#ff1f3d}}
-  .alarm .icon{font-size:76px;animation:shake .4s infinite}
-  @keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
-  .alarm h2{font-size:clamp(30px,9vw,44px);font-weight:900;margin-top:8px}
-  .alarm p{font-size:18px;font-weight:700;margin-top:6px}
-  .alarm .g{margin-top:18px;background:rgba(0,0,0,.25);border-radius:14px;padding:12px 18px;font-size:15px;line-height:1.7}
-  .alarm .g b{font-size:22px}
-  .alarm .sending{margin-top:14px;font-size:14px;opacity:.95}
-  .alarm .sending span{display:inline-block;animation:dots 1.2s infinite}
-  @keyframes dots{0%{opacity:.2}50%{opacity:1}100%{opacity:.2}}
-  .alarm button{margin-top:26px;border:2px solid #fff;background:rgba(0,0,0,.3);color:#fff;border-radius:16px;padding:14px 32px;font-size:17px;font-weight:900;font-family:inherit;cursor:pointer}
+  .alarm{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+         padding:calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom));color:#fff;overflow:hidden;animation:flash .7s infinite}
+  @keyframes flash{0%,100%{background:#b0001c}50%{background:#ff1a3c}}
+  .pulse{position:absolute;left:50%;top:32%;width:180px;height:180px;margin:-90px 0 0 -90px;border-radius:50%;border:3px solid rgba(255,255,255,.6);animation:boom 1.6s infinite}
+  .pulse.p2{animation-delay:.53s}.pulse.p3{animation-delay:1.06s}
+  @keyframes boom{0%{transform:scale(.5);opacity:.9}100%{transform:scale(3);opacity:0}}
+  .a-icon{position:relative;width:150px;height:150px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 10px rgba(255,255,255,.2),0 20px 40px rgba(0,0,0,.3);animation:pop .7s infinite}
+  @keyframes pop{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  .alarm h2{position:relative;font-size:clamp(34px,11vw,48px);font-weight:900;margin-top:22px;letter-spacing:-1px;text-shadow:0 4px 16px rgba(0,0,0,.25)}
+  .alarm .lead{position:relative;font-size:19px;font-weight:700;margin-top:4px}
+  .a-card{position:relative;width:100%;max-width:360px;margin-top:20px;background:rgba(0,0,0,.28);border-radius:20px;padding:16px;text-align:left}
+  .a-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .a-metrics div{background:rgba(255,255,255,.12);border-radius:14px;padding:10px 12px}
+  .a-metrics small{font-size:11.5px;opacity:.85}
+  .a-metrics b{display:block;font-size:24px;font-weight:900;margin-top:2px}
+  .steps{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+  .step{display:flex;align-items:center;gap:10px;font-size:14px;opacity:.45;transition:opacity .3s}
+  .step.done,.step.now{opacity:1}
+  .step .s-ic{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;background:rgba(255,255,255,.2);flex:none}
+  .step.done .s-ic{background:#fff;color:#c4001f}
+  .step.now .s-ic{border:2px solid #fff;border-top-color:transparent;background:none;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .cancel{position:relative;margin-top:22px;border:2px solid rgba(255,255,255,.85);background:rgba(0,0,0,.25);color:#fff;border-radius:18px;padding:15px 36px;font-size:17px;font-weight:900;font-family:inherit;cursor:pointer}
 
-  /* 숨김 테스트 버튼: 오른쪽 아래 모서리 */
-  .secret{position:fixed;right:0;bottom:0;width:56px;height:56px;z-index:40;background:transparent;border:none;opacity:0;cursor:default}
-  .secret-mark{position:fixed;right:6px;bottom:6px;width:6px;height:6px;border-radius:50%;background:#1a2138;z-index:39;pointer-events:none}
+  /* 숨김 테스트 버튼 */
+  .secret{position:fixed;right:0;bottom:0;width:60px;height:60px;z-index:40;background:transparent;border:none;opacity:0}
+  .secret-mark{position:fixed;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.12);z-index:39;pointer-events:none}
 </style>
 </head>
 <body>
@@ -61,16 +139,19 @@
 const { useState, useEffect, useRef } = React;
 
 const G = 9.80665;
-const LEN = 200;            // 그래프에 그릴 샘플 수
-const DEFAULT_TH = 2.5;     // 기본 충격 기준 (G)
+const LEN = 200;
+const PRESETS = [
+  { k: '민감', v: 2.0, d: '작은 충격도 감지' },
+  { k: '보통', v: 2.5, d: '기본값' },
+  { k: '둔감', v: 3.2, d: '오작동 줄이기' },
+];
 
-/* ---------- 경고음: 사이렌 ---------- */
+/* ---------- 경고음 ---------- */
 let ctx = null, sirenTimer = null;
 function unlockAudio() {
   try {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === 'suspended') ctx.resume();
-    // iOS 무음 잠금 해제용 아주 짧은 무음 재생
     const o = ctx.createOscillator(), g = ctx.createGain();
     g.gain.value = 0; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.01);
   } catch (e) {}
@@ -92,7 +173,7 @@ function startSiren() {
 }
 function stopSiren() { if (sirenTimer) clearInterval(sirenTimer); sirenTimer = null; }
 
-/* ---------- 진동 (안드로이드 Chrome 지원 / 아이폰 Safari 미지원) ---------- */
+/* ---------- 진동 (안드로이드만 지원) ---------- */
 const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
 let vibTimer = null;
 function startVibrate() {
@@ -105,13 +186,92 @@ function stopVibrate() { if (vibTimer) clearInterval(vibTimer); vibTimer = null;
 
 function nowStr() { return new Date().toLocaleTimeString('ko-KR', { hour12: false }); }
 
+/* ---------- 낙지 캐릭터 (Teaching Demo 챗봇 '낙지'와 같은 디자인) ---------- */
+function Nakji({ mood = 'calm', size = 64, bob = false }) {
+  const alarm = mood === 'alarm', worried = mood === 'worried';
+  return (
+    <svg className={'nakji nk-' + mood + (bob ? ' bob' : '')} width={size} height={size} viewBox="0 0 120 120" role="img" aria-label="간호사 모자를 쓴 낙지">
+      <g className="legs-all">
+        <g fill="none" stroke="#f47c93" strokeWidth="11" strokeLinecap="round">
+          <path d="M33 78 Q20 96 30 108" /><path d="M45 84 Q40 102 49 110" /><path d="M60 86 Q61 104 68 110" />
+          <path d="M75 84 Q84 100 80 109" /><path d="M24 70 Q8 80 12 94" />
+        </g>
+        <g fill="#ffc7d2">
+          <circle cx="27" cy="96" r="2.4" /><circle cx="43" cy="100" r="2.4" /><circle cx="62" cy="102" r="2.4" />
+          <circle cx="80" cy="99" r="2.4" /><circle cx="12" cy="86" r="2.2" />
+        </g>
+      </g>
+      <g className="wave">
+        <path d="M92 66 Q112 54 107 36" fill="none" stroke="#f47c93" strokeWidth="11" strokeLinecap="round" />
+        <circle cx="105" cy="46" r="2.2" fill="#ffc7d2" /><circle cx="101" cy="56" r="2.2" fill="#ffc7d2" />
+      </g>
+      <ellipse cx="58" cy="54" rx="38" ry="35" fill="#ff8fa6" />
+      <ellipse cx="46" cy="36" rx="10" ry="6" fill="#ffd0da" opacity=".8" />
+      <path d="M36 26 Q58 8 80 26 L76 34 Q58 26 40 34 Z" fill="#ffffff" stroke="#c9566c" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M58 19 c-2.4-3.2-7-1.4-5.8 2.2 c.9 2.6 5.8 5.6 5.8 5.6 s4.9-3 5.8-5.6 c1.2-3.6-3.4-5.4-5.8-2.2z" fill="#e0455f" />
+      <ellipse cx="45" cy="56" rx={alarm ? 9 : 7.5} ry={alarm ? 10 : 8.5} fill="#ffffff" />
+      <ellipse cx="71" cy="56" rx={alarm ? 9 : 7.5} ry={alarm ? 10 : 8.5} fill="#ffffff" />
+      <circle cx="46" cy="58" r={alarm ? 3.2 : worried ? 3.8 : 4.6} fill="#2b2230" />
+      <circle cx="70" cy="58" r={alarm ? 3.2 : worried ? 3.8 : 4.6} fill="#2b2230" />
+      <circle cx="47.6" cy="56" r="1.6" fill="#ffffff" /><circle cx="71.6" cy="56" r="1.6" fill="#ffffff" />
+      {(worried || alarm) && <g stroke="#7a2e3b" strokeWidth="2.4" strokeLinecap="round">
+        <path d="M38 44 L51 47" /><path d="M78 44 L65 47" /></g>}
+      <ellipse cx="34" cy="68" rx="6" ry="3.6" fill="#ff5f7e" opacity=".45" />
+      <ellipse cx="82" cy="68" rx="6" ry="3.6" fill="#ff5f7e" opacity=".45" />
+      {alarm ? <ellipse cx="58" cy="74" rx="6" ry="5.5" fill="#7a2e3b" />
+        : worried ? <path d="M51 73 Q54.5 70 58 73 Q61.5 76 65 73" fill="none" stroke="#7a2e3b" strokeWidth="2.6" strokeLinecap="round" />
+        : <path d="M51 70 Q58 77 65 70" fill="none" stroke="#7a2e3b" strokeWidth="2.6" strokeLinecap="round" />}
+      {alarm && <path d="M92 32 q-5 8 0 11 q5 -3 0 -11z" fill="#8fd3ff" />}
+    </svg>
+  );
+}
+
+/* ---------- 원형 게이지 ---------- */
+function Gauge({ value, th, color, running, mood }) {
+  const R = 120, C = 150, start = 135, sweep = 270, max = 4;
+  const pt = (deg, r = R) => { const a = (deg - 90) * Math.PI / 180; return [C + r * Math.cos(a), C + r * Math.sin(a)]; };
+  const arc = (from, to, r = R) => {
+    const [x1, y1] = pt(from, r), [x2, y2] = pt(to, r);
+    return `M ${x1} ${y1} A ${r} ${r} 0 ${to - from > 180 ? 1 : 0} 1 ${x2} ${y2}`;
+  };
+  const frac = v => Math.max(0, Math.min(1, v / max));
+  const end = start + sweep * Math.max(0.005, frac(value));
+  const [tx1, ty1] = pt(start + sweep * frac(th), R - 18), [tx2, ty2] = pt(start + sweep * frac(th), R + 16);
+  const ticks = [0, 1, 2, 3, 4];
+  return (
+    <div className={'gauge' + (running ? ' running' : '')} style={{ color }}>
+      <div className="ring" /><div className="ring r2" /><div className="ring r3" />
+      <svg viewBox="0 0 300 300">
+        <defs>
+          <linearGradient id="gg" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stopColor="#5cc2b9" /><stop offset=".55" stopColor="#ffb020" /><stop offset="1" stopColor="#ff2d55" />
+          </linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="4" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+        </defs>
+        <circle cx={C} cy={C} r={R - 26} fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.06)" />
+        <path d={arc(start, start + sweep)} stroke="rgba(255,255,255,.08)" strokeWidth="18" fill="none" strokeLinecap="round" />
+        <path d={arc(start, end)} stroke="url(#gg)" strokeWidth="18" fill="none" strokeLinecap="round" filter="url(#glow)" />
+        {ticks.map(t => { const [x, y] = pt(start + sweep * t / max, R + 24); return <text key={t} x={x} y={y + 4} fill="#6f7a99" fontSize="11" textAnchor="middle">{t}G</text>; })}
+        <line x1={tx1} y1={ty1} x2={tx2} y2={ty2} stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+      <div className="g-center">
+        <Nakji mood={mood} size={74} bob />
+        <div className="g-label">실시간 충격</div>
+        <div className="g-val" style={{ color }}>{value.toFixed(2)}<small>G</small></div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
-  const [state, setState] = useState('idle');   // idle | waiting | running | denied | nosensor | unsupported
-  const [alarm, setAlarm] = useState(null);      // {g, time, source}
+  const [state, setState] = useState('idle');
+  const [alarm, setAlarm] = useState(null);
+  const [step, setStep] = useState(0);
   const [mag, setMag] = useState(1);
   const [peak, setPeak] = useState(1);
-  const [th, setTh] = useState(DEFAULT_TH);
+  const [th, setTh] = useState(2.5);
   const [hz, setHz] = useState(0);
+  const [hist, setHist] = useState([]);
   const buf = useRef({ x: Array(LEN).fill(0), y: Array(LEN).fill(0), z: Array(LEN).fill(0), m: Array(LEN).fill(1) });
   const canvasRef = useRef(null);
   const thRef = useRef(th); thRef.current = th;
@@ -119,24 +279,33 @@ function App() {
   const cooldown = useRef(0);
   const count = useRef(0);
   const gotData = useRef(false);
-  const freeFall = useRef(0); // 마지막 자유낙하(1G 미만 급감) 시각
-  const wakeLock = useRef(null);
+  const freeFall = useRef(0);
 
   const isiOS = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
 
-  /* 경고 발생 */
   function trigger(g, source) {
     if (alarmRef.current) return;
-    setAlarm({ g, time: nowStr(), source, fall: Date.now() - freeFall.current < 1200 });
+    const fall = Date.now() - freeFall.current < 1200;
+    const a = { g, time: nowStr(), source, fall };
+    setAlarm(a); setStep(0);
+    setHist(h => [{ ...a, result: 'alert' }, ...h].slice(0, 6));
     startSiren(); startVibrate();
   }
   function cancelAlarm() {
     setAlarm(null); stopSiren(); stopVibrate();
-    cooldown.current = Date.now() + 2500; // 취소 직후 2.5초간 재감지 방지
+    cooldown.current = Date.now() + 2500;
     setPeak(1);
+    setHist(h => h.length ? [{ ...h[0], result: 'cancel' }, ...h.slice(1)] : h);
   }
 
-  /* 센서 이벤트 처리 */
+  // 신고 진행 단계 연출
+  useEffect(() => {
+    if (!alarm) return;
+    if (step >= 3) return;
+    const id = setTimeout(() => setStep(s => s + 1), step === 0 ? 900 : 1400);
+    return () => clearTimeout(id);
+  }, [alarm, step]);
+
   function onMotion(e) {
     const a = e.accelerationIncludingGravity;
     if (!a || a.x == null) return;
@@ -150,8 +319,9 @@ function App() {
     if (m < 0.45) freeFall.current = Date.now();
     if (m >= thRef.current && Date.now() > cooldown.current) trigger(m, 'sensor');
   }
+  const motionRef = useRef(null); motionRef.current = onMotion;
+  const handler = useRef(e => motionRef.current && motionRef.current(e)).current;
 
-  /* [센서 작동 시작] — 반드시 버튼 클릭 안에서 바로 권한 요청 */
   function start() {
     unlockAudio();
     if (typeof DeviceMotionEvent === 'undefined') { setState('unsupported'); return; }
@@ -160,12 +330,10 @@ function App() {
         .then(r => { if (r === 'granted') listen(); else setState('denied'); })
         .catch(() => setState('denied'));
     } else {
-      listen(); // 안드로이드 Chrome: 권한 팝업 없이 바로 수신
+      listen();
     }
-    try { navigator.wakeLock && navigator.wakeLock.request('screen').then(w => wakeLock.current = w).catch(() => {}); } catch (e) {}
+    try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch (e) {}
   }
-  const motionRef = useRef(null); motionRef.current = onMotion;
-  const handler = useRef(e => motionRef.current && motionRef.current(e)).current;
   function listen() {
     window.removeEventListener('devicemotion', handler);
     window.addEventListener('devicemotion', handler);
@@ -174,7 +342,6 @@ function App() {
     setTimeout(() => setState(gotData.current ? 'running' : 'nosensor'), 2000);
   }
 
-  // 데이터가 늦게 들어오면 상태 갱신
   useEffect(() => {
     const id = setInterval(() => {
       setHz(count.current); count.current = 0;
@@ -183,7 +350,7 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
-  /* 그래프 그리기 (requestAnimationFrame) */
+  /* 그래프 */
   useEffect(() => {
     let raf;
     const draw = () => {
@@ -191,25 +358,29 @@ function App() {
       if (c) {
         const dpr = window.devicePixelRatio || 1;
         const W = c.clientWidth, H = c.clientHeight;
-        if (c.width !== W * dpr) { c.width = W * dpr; c.height = H * dpr; }
+        if (c.width !== Math.round(W * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
         const g = c.getContext('2d');
         g.setTransform(dpr, 0, 0, dpr, 0, 0);
         g.clearRect(0, 0, W, H);
         const maxG = 4, mid = H / 2;
-        const yOf = v => mid - Math.max(-maxG, Math.min(maxG, v)) / maxG * (H / 2 - 6);
-        // 눈금
-        g.strokeStyle = '#1a2033'; g.lineWidth = 1; g.font = '10px sans-serif'; g.fillStyle = '#4a5577';
-        [-4, -2, 0, 2, 4].forEach(v => { const yy = yOf(v); g.beginPath(); g.moveTo(0, yy); g.lineTo(W, yy); g.stroke(); g.fillText(v + 'G', 4, yy - 2); });
-        // 기준선
+        const yOf = v => mid - Math.max(-maxG, Math.min(maxG, v)) / maxG * (H / 2 - 8);
+        g.font = '10px sans-serif';
+        [-4, -2, 0, 2, 4].forEach(v => {
+          const yy = yOf(v);
+          g.strokeStyle = 'rgba(255,255,255,.06)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, yy); g.lineTo(W, yy); g.stroke();
+          g.fillStyle = '#5e6886'; g.fillText(v + 'G', 6, yy - 3);
+        });
         const ty = yOf(thRef.current);
-        g.setLineDash([6, 5]); g.strokeStyle = '#ff9f0a'; g.beginPath(); g.moveTo(0, ty); g.lineTo(W, ty); g.stroke(); g.setLineDash([]);
+        g.setLineDash([6, 5]); g.strokeStyle = 'rgba(255,176,32,.9)'; g.beginPath(); g.moveTo(0, ty); g.lineTo(W, ty); g.stroke(); g.setLineDash([]);
         const b = buf.current;
-        const line = (arr, col, w) => {
-          g.strokeStyle = col; g.lineWidth = w; g.beginPath();
-          arr.forEach((v, i) => { const xx = i / (LEN - 1) * W, yy = yOf(v); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); });
-          g.stroke();
-        };
-        line(b.x, '#ff453a', 1.4); line(b.y, '#30d158', 1.4); line(b.z, '#0a84ff', 1.4); line(b.m, '#ffffff', 2.2);
+        const path = arr => { g.beginPath(); arr.forEach((v, i) => { const xx = i / (LEN - 1) * W, yy = yOf(v); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }); };
+        [[b.x, '#ff5a7a'], [b.y, '#3ee08f'], [b.z, '#4da3ff']].forEach(([arr, col]) => { path(arr); g.strokeStyle = col; g.lineWidth = 1.3; g.globalAlpha = .75; g.stroke(); });
+        g.globalAlpha = 1;
+        // 합성값: 채움 + 발광 선
+        path(b.m); g.lineTo(W, H); g.lineTo(0, H); g.closePath();
+        const grad = g.createLinearGradient(0, 0, 0, H); grad.addColorStop(0, 'rgba(255,143,166,.32)'); grad.addColorStop(1, 'rgba(255,143,166,0)');
+        g.fillStyle = grad; g.fill();
+        path(b.m); g.shadowColor = '#ff8fa6'; g.shadowBlur = 10; g.strokeStyle = '#ffffff'; g.lineWidth = 2.2; g.stroke(); g.shadowBlur = 0;
         const last = b.m[b.m.length - 1];
         setMag(last);
         setPeak(p => Math.max(p, last));
@@ -222,79 +393,126 @@ function App() {
 
   useEffect(() => () => { window.removeEventListener('devicemotion', handler); stopSiren(); stopVibrate(); }, []);
 
-  const statusInfo = {
-    idle: ['#6b7591', '대기 중 — 위 버튼을 눌러 센서를 켜세요'],
-    waiting: ['#ff9f0a', '센서 신호를 기다리는 중…'],
-    running: ['#30d158', `센서 작동 중 · ${hz}회/초 수신`],
-    denied: ['#ff453a', '권한이 거부되었습니다. Safari 설정에서 동작 및 방향 접근을 허용한 뒤 새로고침하세요.'],
-    nosensor: ['#ff453a', '센서 신호가 없습니다. HTTPS 주소인지 확인하거나 숨김 테스트 버튼을 사용하세요.'],
-    unsupported: ['#ff453a', '이 브라우저는 가속도 센서를 지원하지 않습니다.'],
+  const on = state === 'running' || state === 'waiting';
+  const level = mag >= th ? 2 : mag >= th * 0.7 ? 1 : 0;
+  const color = ['#5cc2b9', '#ffb020', '#ff2d55'][level];
+  const levelText = !on ? '대기' : ['안전', '주의', '위험'][level];
+  const talk = !on ? '센서를 켜 주시면 낙지가 지켜볼게요!'
+    : ['낙지가 지켜보고 있어요. 안심하세요 🐙', '앗, 흔들림이 커요! 천천히 움직이세요', '쿵! 큰 충격이 느껴졌어요'][level];
+  const pill = {
+    idle: ['#8f9bbd', '대기 중', false],
+    waiting: ['#ffb020', '연결 중', true],
+    running: ['#5cc2b9', '감지 중', true],
+    denied: ['#ff5a5a', '권한 거부', false],
+    nosensor: ['#ff5a5a', '신호 없음', false],
+    unsupported: ['#ff5a5a', '미지원', false],
+  }[state];
+  const errMsg = {
+    denied: '권한이 거부되었습니다. 브라우저 앱을 완전히 닫았다가 다시 열고 [센서 작동 시작]을 눌러 “허용”을 선택하세요.',
+    nosensor: '센서 신호가 없습니다. https 주소로 열었는지 확인하거나, 오른쪽 아래 모서리의 테스트 버튼을 사용하세요.',
+    unsupported: '이 브라우저는 가속도 센서를 지원하지 않습니다.',
   }[state];
 
-  const pct = Math.min(100, mag / 4 * 100);
-  const color = mag >= th ? '#ff453a' : mag >= th * 0.7 ? '#ff9f0a' : '#30d158';
-  const on = state === 'running' || state === 'waiting';
+  const steps = ['낙상 이벤트 기록', '현재 위치 확인', '보호자에게 알림 전송 중'];
 
   return (
     <div className="app">
-      <h1>⌚ AI 낙상 감지</h1>
-      <div className="sub">스마트폰 가속도 센서 기반 · 시연용</div>
+      <div className="top">
+        <div className="brand">
+          <div className="logo"><Nakji size={46} /></div>
+          <div><b>낙지</b><small>낙상 지킴이 · AI 낙상 감지</small></div>
+        </div>
+        <div className={'pill' + (pill[2] ? ' live' : '')} style={{ color: pill[0] }}><i style={{ background: pill[0] }} />{pill[1]}</div>
+      </div>
+
+      <div className="hero">
+        <Gauge value={on ? mag : 0} th={th} color={on ? color : '#5e6886'} running={state === 'running'} mood={on ? ['calm', 'worried', 'alarm'][level] : 'calm'} />
+        <div className="bubble" style={{ color: on ? color : '#d3e6e4', background: (on ? color : '#8f9bbd') + '22', border: `1px solid ${on ? color : '#8f9bbd'}55` }}>
+          <b>{levelText}</b> · {talk}
+        </div>
+      </div>
 
       <button className={'start' + (on ? ' on' : '')} onClick={start}>
-        {on ? '✓ 센서 작동 중 (다시 누르면 재연결)' : '▶ 센서 작동 시작'}
+        {on ? '✓ 센서 작동 중 · 다시 누르면 재연결' : '▶  센서 작동 시작'}
       </button>
+      {errMsg && <div className="msg">{errMsg}</div>}
 
-      <div className="status"><span className="dot" style={{ background: statusInfo[0] }} />{statusInfo[1]}</div>
+      <div className="stats">
+        <div className="glass stat"><div className="ic">💥</div><div className="v">{peak.toFixed(2)}G</div><div className="k">최대 충격</div></div>
+        <div className="glass stat"><div className="ic">📡</div><div className="v">{hz}<span style={{ fontSize: 12, color: '#8f9bbd' }}>Hz</span></div><div className="k">센서 수신</div></div>
+        <div className="glass stat"><div className="ic">📳</div><div className="v" style={{ fontSize: 15, marginTop: 7 }}>{canVibrate ? '지원' : '미지원'}</div><div className="k">진동</div></div>
+      </div>
 
-      <div className="card">
-        <div className="row">
-          <span className="lbl">현재 가속도 (합성)</span>
-          <span className="lbl">기준 {th.toFixed(1)}G</span>
-        </div>
-        <div className="big" style={{ color }}>{mag.toFixed(2)}<small>G</small></div>
-        <div className="meter">
-          <div className="fill" style={{ width: pct + '%', background: color }} />
-          <div className="th" style={{ left: Math.min(100, th / 4 * 100) + '%' }} />
-        </div>
+      <div className="glass">
+        <div className="sec-title">3축 가속도 실시간 파형<span>기준선 {th.toFixed(1)}G</span></div>
         <canvas ref={canvasRef} />
         <div className="legend">
-          <span><i style={{ background: '#ff453a' }} />X</span>
-          <span><i style={{ background: '#30d158' }} />Y</span>
-          <span><i style={{ background: '#0a84ff' }} />Z</span>
-          <span><i style={{ background: '#fff' }} />합성(크기)</span>
-          <span><i style={{ background: '#ff9f0a' }} />충격 기준</span>
+          <span><i style={{ background: '#ff5a7a' }} />X</span>
+          <span><i style={{ background: '#3ee08f' }} />Y</span>
+          <span><i style={{ background: '#4da3ff' }} />Z</span>
+          <span><i style={{ background: '#fff' }} />합성(충격 크기)</span>
+          <span><i style={{ background: '#ffb020' }} />감지 기준</span>
         </div>
       </div>
 
-      <div className="grid2">
-        <div className="card"><div className="lbl">최대 충격</div><div className="mini">{peak.toFixed(2)} G</div></div>
-        <div className="card"><div className="lbl">진동 지원</div><div className="mini" style={{ fontSize: 16, marginTop: 6 }}>{canVibrate ? '✓ 지원' : '✕ 미지원(아이폰)'}</div></div>
-      </div>
-
-      <div className="card">
-        <div className="row"><span className="lbl">감지 민감도 (충격 기준값)</span><span className="lbl">{th.toFixed(1)} G</span></div>
+      <div className="glass">
+        <div className="sec-title">감지 민감도<span>정지 상태 ≈ 1G</span></div>
+        <div className="chips">
+          {PRESETS.map(p => (
+            <button key={p.k} className={'chip' + (Math.abs(th - p.v) < 0.05 ? ' sel' : '')} onClick={() => setTh(p.v)}>
+              {p.k} {p.v.toFixed(1)}G<b>{p.d}</b>
+            </button>
+          ))}
+        </div>
         <input className="slider" type="range" min="1.5" max="4" step="0.1" value={th} onChange={e => setTh(parseFloat(e.target.value))} />
-        <div className="note">값이 낮을수록 예민하게 감지합니다. 시연 때 흔들어서 잘 안 걸리면 2.0G 정도로 낮추세요. 정지 상태는 약 1G(중력)입니다.</div>
       </div>
 
-      <div className="note">※ 교육·시연용 프로토타입입니다. 실제 보호자 신고·전화 기능은 없으며, 단순 충격 기준으로 감지하므로 의료기기 수준의 정확도를 갖지 않습니다.</div>
+      <div className="glass">
+        <div className="sec-title">감지 기록<span>최근 6건</span></div>
+        {hist.length === 0 ? <div className="empty">아직 감지된 충격이 없습니다.</div> : (
+          <ul className="hist" style={{ marginTop: 6 }}>
+            {hist.map((h, i) => (
+              <li key={i}>
+                <span className="badge" style={h.result === 'cancel'
+                  ? { background: 'rgba(143,155,189,.18)', color: '#c9d2ec' }
+                  : { background: 'rgba(255,45,85,.2)', color: '#ff7a92' }}>
+                  {h.result === 'cancel' ? '오작동 취소' : '신고'}
+                </span>
+                <span>{h.g.toFixed(1)}G · {h.source === 'test' ? '테스트' : h.fall ? '낙하→충격' : '충격'}</span>
+                <time>{h.time}</time>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
-      {/* 숨김 테스트 버튼: 오른쪽 아래 모서리를 탭 */}
+      <div className="foot">🐙 낙지(낙상 지킴이) · 교육·시연용 프로토타입<br />실제 신고 기능 없음 · 의료기기 아님</div>
+
       <div className="secret-mark" />
       <button className="secret" aria-label="test" onClick={() => { unlockAudio(); trigger(4.2, 'test'); }} />
 
       {alarm && (
         <div className="alarm">
-          <div className="icon">🚨</div>
-          <h2>낙상 감지!</h2>
-          <p>보호자 자동 신고 중</p>
-          <div className="g">
-            충격 강도 <b>{alarm.g.toFixed(1)}G</b><br />
-            {alarm.fall ? '자유낙하 → 충격 패턴 감지' : '급격한 충격 감지'}<br />
-            감지 시각 {alarm.time}
+          <div className="pulse" /><div className="pulse p2" /><div className="pulse p3" />
+          <div className="a-icon"><Nakji mood="alarm" size={118} bob /></div>
+          <h2>🚨 낙상 감지!</h2>
+          <div className="lead">보호자 자동 신고 중</div>
+          <div style={{ position: 'relative', fontSize: 14, opacity: .92, marginTop: 4 }}>낙지가 보호자에게 바로 알리고 있어요</div>
+          <div className="a-card">
+            <div className="a-metrics">
+              <div><small>충격 강도</small><b>{alarm.g.toFixed(1)}G</b></div>
+              <div><small>감지 유형</small><b style={{ fontSize: 17, marginTop: 6 }}>{alarm.fall ? '낙하 → 충격' : '급격한 충격'}</b></div>
+            </div>
+            <div className="steps">
+              {steps.map((s, i) => (
+                <div key={i} className={'step' + (i < step ? ' done' : i === step ? ' now' : '')}>
+                  <span className="s-ic">{i < step ? '✓' : ''}</span>{s}{i === 2 && step >= 3 ? ' — 완료' : ''}
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, opacity: .8, marginTop: 10 }}>감지 시각 {alarm.time}</div>
           </div>
-          <div className="sending">보호자에게 위치·상태 전송 중<span>…</span></div>
-          <button onClick={cancelAlarm}>오작동 취소</button>
+          <button className="cancel" onClick={cancelAlarm}>오작동 취소</button>
         </div>
       )}
     </div>
