@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b1020">
+<title>AI 낙상 감지</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#0b1020;color:#e8ecf4;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+  .app{max-width:520px;margin:0 auto;min-height:100%;padding:16px 16px 80px;display:flex;flex-direction:column;gap:12px}
+  h1{font-size:20px;font-weight:900;text-align:center}
+  .sub{font-size:12px;color:#8a94ad;text-align:center;margin-top:-6px}
+  .start{width:100%;border:none;border-radius:16px;padding:18px;font-size:18px;font-weight:900;font-family:inherit;cursor:pointer;color:#fff;background:linear-gradient(135deg,#2f6bff,#5b3bff);box-shadow:0 8px 24px rgba(47,107,255,.35)}
+  .start.on{background:#1f2a48;box-shadow:none;color:#9fb3ff;font-size:15px;padding:14px}
+  .status{display:flex;align-items:center;gap:8px;font-size:13px;background:#141a2e;border:1px solid #232b45;border-radius:12px;padding:10px 12px}
+  .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .card{background:#141a2e;border:1px solid #232b45;border-radius:16px;padding:14px}
+  .row{display:flex;justify-content:space-between;align-items:baseline}
+  .lbl{font-size:12px;color:#8a94ad;font-weight:700}
+  .big{font-size:44px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
+  .big small{font-size:16px;color:#8a94ad;margin-left:4px}
+  .meter{height:12px;background:#0b1020;border-radius:6px;overflow:hidden;margin-top:8px;position:relative}
+  .meter .fill{height:100%;border-radius:6px;transition:width .08s linear}
+  .meter .th{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff}
+  canvas{width:100%;height:190px;display:block;background:#07090f;border-radius:12px;margin-top:8px}
+  .legend{display:flex;gap:12px;font-size:11.5px;color:#8a94ad;margin-top:6px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .slider{width:100%;margin-top:10px;accent-color:#ff9f0a}
+  .note{font-size:11.5px;color:#6b7591;line-height:1.6}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .mini{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums;margin-top:2px}
+
+  /* 경고 화면 */
+  .alarm{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#fff;animation:flash .6s infinite}
+  @keyframes flash{0%,100%{background:#c4001f}50%{background:#ff1f3d}}
+  .alarm .icon{font-size:76px;animation:shake .4s infinite}
+  @keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+  .alarm h2{font-size:clamp(30px,9vw,44px);font-weight:900;margin-top:8px}
+  .alarm p{font-size:18px;font-weight:700;margin-top:6px}
+  .alarm .g{margin-top:18px;background:rgba(0,0,0,.25);border-radius:14px;padding:12px 18px;font-size:15px;line-height:1.7}
+  .alarm .g b{font-size:22px}
+  .alarm .sending{margin-top:14px;font-size:14px;opacity:.95}
+  .alarm .sending span{display:inline-block;animation:dots 1.2s infinite}
+  @keyframes dots{0%{opacity:.2}50%{opacity:1}100%{opacity:.2}}
+  .alarm button{margin-top:26px;border:2px solid #fff;background:rgba(0,0,0,.3);color:#fff;border-radius:16px;padding:14px 32px;font-size:17px;font-weight:900;font-family:inherit;cursor:pointer}
+
+  /* 숨김 테스트 버튼: 오른쪽 아래 모서리 */
+  .secret{position:fixed;right:0;bottom:0;width:56px;height:56px;z-index:40;background:transparent;border:none;opacity:0;cursor:default}
+  .secret-mark{position:fixed;right:6px;bottom:6px;width:6px;height:6px;border-radius:50%;background:#1a2138;z-index:39;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+const G = 9.80665;
+const LEN = 200;            // 그래프에 그릴 샘플 수
+const DEFAULT_TH = 2.5;     // 기본 충격 기준 (G)
+
+/* ---------- 경고음: 사이렌 ---------- */
+let ctx = null, sirenTimer = null;
+function unlockAudio() {
+  try {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    // iOS 무음 잠금 해제용 아주 짧은 무음 재생
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    g.gain.value = 0; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.01);
+  } catch (e) {}
+}
+function startSiren() {
+  stopSiren();
+  if (!ctx) return;
+  let hi = false;
+  const tone = () => {
+    try {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = hi ? 1050 : 780; hi = !hi;
+      g.gain.setValueAtTime(0.18, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.42);
+      o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.45);
+    } catch (e) {}
+  };
+  tone(); sirenTimer = setInterval(tone, 450);
+}
+function stopSiren() { if (sirenTimer) clearInterval(sirenTimer); sirenTimer = null; }
+
+/* ---------- 진동 (안드로이드 Chrome 지원 / 아이폰 Safari 미지원) ---------- */
+const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
+let vibTimer = null;
+function startVibrate() {
+  stopVibrate();
+  if (!canVibrate) return;
+  const v = () => { try { navigator.vibrate([600, 200, 600, 200]); } catch (e) {} };
+  v(); vibTimer = setInterval(v, 1600);
+}
+function stopVibrate() { if (vibTimer) clearInterval(vibTimer); vibTimer = null; try { canVibrate && navigator.vibrate(0); } catch (e) {} }
+
+function nowStr() { return new Date().toLocaleTimeString('ko-KR', { hour12: false }); }
+
+function App() {
+  const [state, setState] = useState('idle');   // idle | waiting | running | denied | nosensor | unsupported
+  const [alarm, setAlarm] = useState(null);      // {g, time, source}
+  const [mag, setMag] = useState(1);
+  const [peak, setPeak] = useState(1);
+  const [th, setTh] = useState(DEFAULT_TH);
+  const [hz, setHz] = useState(0);
+  const buf = useRef({ x: Array(LEN).fill(0), y: Array(LEN).fill(0), z: Array(LEN).fill(0), m: Array(LEN).fill(1) });
+  const canvasRef = useRef(null);
+  const thRef = useRef(th); thRef.current = th;
+  const alarmRef = useRef(null); alarmRef.current = alarm;
+  const cooldown = useRef(0);
+  const count = useRef(0);
+  const gotData = useRef(false);
+  const freeFall = useRef(0); // 마지막 자유낙하(1G 미만 급감) 시각
+  const wakeLock = useRef(null);
+
+  const isiOS = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
+
+  /* 경고 발생 */
+  function trigger(g, source) {
+    if (alarmRef.current) return;
+    setAlarm({ g, time: nowStr(), source, fall: Date.now() - freeFall.current < 1200 });
+    startSiren(); startVibrate();
+  }
+  function cancelAlarm() {
+    setAlarm(null); stopSiren(); stopVibrate();
+    cooldown.current = Date.now() + 2500; // 취소 직후 2.5초간 재감지 방지
+    setPeak(1);
+  }
+
+  /* 센서 이벤트 처리 */
+  function onMotion(e) {
+    const a = e.accelerationIncludingGravity;
+    if (!a || a.x == null) return;
+    gotData.current = true;
+    count.current++;
+    const x = a.x / G, y = a.y / G, z = a.z / G;
+    const m = Math.sqrt(x * x + y * y + z * z);
+    const b = buf.current;
+    b.x.push(x); b.y.push(y); b.z.push(z); b.m.push(m);
+    if (b.x.length > LEN) { b.x.shift(); b.y.shift(); b.z.shift(); b.m.shift(); }
+    if (m < 0.45) freeFall.current = Date.now();
+    if (m >= thRef.current && Date.now() > cooldown.current) trigger(m, 'sensor');
+  }
+
+  /* [센서 작동 시작] — 반드시 버튼 클릭 안에서 바로 권한 요청 */
+  function start() {
+    unlockAudio();
+    if (typeof DeviceMotionEvent === 'undefined') { setState('unsupported'); return; }
+    if (isiOS) {
+      DeviceMotionEvent.requestPermission()
+        .then(r => { if (r === 'granted') listen(); else setState('denied'); })
+        .catch(() => setState('denied'));
+    } else {
+      listen(); // 안드로이드 Chrome: 권한 팝업 없이 바로 수신
+    }
+    try { navigator.wakeLock && navigator.wakeLock.request('screen').then(w => wakeLock.current = w).catch(() => {}); } catch (e) {}
+  }
+  const motionRef = useRef(null); motionRef.current = onMotion;
+  const handler = useRef(e => motionRef.current && motionRef.current(e)).current;
+  function listen() {
+    window.removeEventListener('devicemotion', handler);
+    window.addEventListener('devicemotion', handler);
+    gotData.current = false;
+    setState('waiting');
+    setTimeout(() => setState(gotData.current ? 'running' : 'nosensor'), 2000);
+  }
+
+  // 데이터가 늦게 들어오면 상태 갱신
+  useEffect(() => {
+    const id = setInterval(() => {
+      setHz(count.current); count.current = 0;
+      if (gotData.current) setState(s => (s === 'waiting' || s === 'nosensor') ? 'running' : s);
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  /* 그래프 그리기 (requestAnimationFrame) */
+  useEffect(() => {
+    let raf;
+    const draw = () => {
+      const c = canvasRef.current;
+      if (c) {
+        const dpr = window.devicePixelRatio || 1;
+        const W = c.clientWidth, H = c.clientHeight;
+        if (c.width !== W * dpr) { c.width = W * dpr; c.height = H * dpr; }
+        const g = c.getContext('2d');
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, W, H);
+        const maxG = 4, mid = H / 2;
+        const yOf = v => mid - Math.max(-maxG, Math.min(maxG, v)) / maxG * (H / 2 - 6);
+        // 눈금
+        g.strokeStyle = '#1a2033'; g.lineWidth = 1; g.font = '10px sans-serif'; g.fillStyle = '#4a5577';
+        [-4, -2, 0, 2, 4].forEach(v => { const yy = yOf(v); g.beginPath(); g.moveTo(0, yy); g.lineTo(W, yy); g.stroke(); g.fillText(v + 'G', 4, yy - 2); });
+        // 기준선
+        const ty = yOf(thRef.current);
+        g.setLineDash([6, 5]); g.strokeStyle = '#ff9f0a'; g.beginPath(); g.moveTo(0, ty); g.lineTo(W, ty); g.stroke(); g.setLineDash([]);
+        const b = buf.current;
+        const line = (arr, col, w) => {
+          g.strokeStyle = col; g.lineWidth = w; g.beginPath();
+          arr.forEach((v, i) => { const xx = i / (LEN - 1) * W, yy = yOf(v); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); });
+          g.stroke();
+        };
+        line(b.x, '#ff453a', 1.4); line(b.y, '#30d158', 1.4); line(b.z, '#0a84ff', 1.4); line(b.m, '#ffffff', 2.2);
+        const last = b.m[b.m.length - 1];
+        setMag(last);
+        setPeak(p => Math.max(p, last));
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => () => { window.removeEventListener('devicemotion', handler); stopSiren(); stopVibrate(); }, []);
+
+  const statusInfo = {
+    idle: ['#6b7591', '대기 중 — 위 버튼을 눌러 센서를 켜세요'],
+    waiting: ['#ff9f0a', '센서 신호를 기다리는 중…'],
+    running: ['#30d158', `센서 작동 중 · ${hz}회/초 수신`],
+    denied: ['#ff453a', '권한이 거부되었습니다. Safari 설정에서 동작 및 방향 접근을 허용한 뒤 새로고침하세요.'],
+    nosensor: ['#ff453a', '센서 신호가 없습니다. HTTPS 주소인지 확인하거나 숨김 테스트 버튼을 사용하세요.'],
+    unsupported: ['#ff453a', '이 브라우저는 가속도 센서를 지원하지 않습니다.'],
+  }[state];
+
+  const pct = Math.min(100, mag / 4 * 100);
+  const color = mag >= th ? '#ff453a' : mag >= th * 0.7 ? '#ff9f0a' : '#30d158';
+  const on = state === 'running' || state === 'waiting';
+
+  return (
+    <div className="app">
+      <h1>⌚ AI 낙상 감지</h1>
+      <div className="sub">스마트폰 가속도 센서 기반 · 시연용</div>
+
+      <button className={'start' + (on ? ' on' : '')} onClick={start}>
+        {on ? '✓ 센서 작동 중 (다시 누르면 재연결)' : '▶ 센서 작동 시작'}
+      </button>
+
+      <div className="status"><span className="dot" style={{ background: statusInfo[0] }} />{statusInfo[1]}</div>
+
+      <div className="card">
+        <div className="row">
+          <span className="lbl">현재 가속도 (합성)</span>
+          <span className="lbl">기준 {th.toFixed(1)}G</span>
+        </div>
+        <div className="big" style={{ color }}>{mag.toFixed(2)}<small>G</small></div>
+        <div className="meter">
+          <div className="fill" style={{ width: pct + '%', background: color }} />
+          <div className="th" style={{ left: Math.min(100, th / 4 * 100) + '%' }} />
+        </div>
+        <canvas ref={canvasRef} />
+        <div className="legend">
+          <span><i style={{ background: '#ff453a' }} />X</span>
+          <span><i style={{ background: '#30d158' }} />Y</span>
+          <span><i style={{ background: '#0a84ff' }} />Z</span>
+          <span><i style={{ background: '#fff' }} />합성(크기)</span>
+          <span><i style={{ background: '#ff9f0a' }} />충격 기준</span>
+        </div>
+      </div>
+
+      <div className="grid2">
+        <div className="card"><div className="lbl">최대 충격</div><div className="mini">{peak.toFixed(2)} G</div></div>
+        <div className="card"><div className="lbl">진동 지원</div><div className="mini" style={{ fontSize: 16, marginTop: 6 }}>{canVibrate ? '✓ 지원' : '✕ 미지원(아이폰)'}</div></div>
+      </div>
+
+      <div className="card">
+        <div className="row"><span className="lbl">감지 민감도 (충격 기준값)</span><span className="lbl">{th.toFixed(1)} G</span></div>
+        <input className="slider" type="range" min="1.5" max="4" step="0.1" value={th} onChange={e => setTh(parseFloat(e.target.value))} />
+        <div className="note">값이 낮을수록 예민하게 감지합니다. 시연 때 흔들어서 잘 안 걸리면 2.0G 정도로 낮추세요. 정지 상태는 약 1G(중력)입니다.</div>
+      </div>
+
+      <div className="note">※ 교육·시연용 프로토타입입니다. 실제 보호자 신고·전화 기능은 없으며, 단순 충격 기준으로 감지하므로 의료기기 수준의 정확도를 갖지 않습니다.</div>
+
+      {/* 숨김 테스트 버튼: 오른쪽 아래 모서리를 탭 */}
+      <div className="secret-mark" />
+      <button className="secret" aria-label="test" onClick={() => { unlockAudio(); trigger(4.2, 'test'); }} />
+
+      {alarm && (
+        <div className="alarm">
+          <div className="icon">🚨</div>
+          <h2>낙상 감지!</h2>
+          <p>보호자 자동 신고 중</p>
+          <div className="g">
+            충격 강도 <b>{alarm.g.toFixed(1)}G</b><br />
+            {alarm.fall ? '자유낙하 → 충격 패턴 감지' : '급격한 충격 감지'}<br />
+            감지 시각 {alarm.time}
+          </div>
+          <div className="sending">보호자에게 위치·상태 전송 중<span>…</span></div>
+          <button onClick={cancelAlarm}>오작동 취소</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
